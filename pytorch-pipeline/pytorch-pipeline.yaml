@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: pytorch-image-pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18, pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-03T14:29:36.706899',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "training mnist data from
+      minio in docker image", "name": "pytorch image pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18}
+spec:
+  entrypoint: pytorch-image-pipeline
+  templates:
+  - name: pytorch-image-pipeline
+    dag:
+      tasks:
+      - {name: pytorch-mnist-train, template: pytorch-mnist-train}
+  - name: pytorch-mnist-train
+    container:
+      command: [python, train.py]
+      image: kimkihoon0515/pytorch-train
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  arguments:
+    parameters: []
+  serviceAccountName: pipeline-runner
