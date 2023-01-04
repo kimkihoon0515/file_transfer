@@ -27,7 +27,7 @@ def train():
   from minio import Minio
 
   minio_client = Minio(
-      "172.17.0.54:9000",
+      "172.17.0.38:9000",
       access_key="minio",
       secret_key="minio123",
       secure=False
@@ -99,12 +99,13 @@ def train():
 
     if best_accuracy < val_accuracy: # 성능이 가장 좋은 모델로 갱신
       best_accuracy = val_accuracy
-      torch.save(model.state_dict(),'/tmp/best_model.pt')
+      torch.save(model.state_dict(),'best_model.pt')
       print(f"===========> Save Model(Epoch: {epoch}, Accuracy: {best_accuracy:.5})")
 
     print("--------------------------------------------------------------------------------------------")
   print(os.listdir('./'))
-  minio_client.fput_object(minio_bucket,"best_model.pt","/tmp/best_model.pt")
+  print("hi")
+  minio_client.fput_object(minio_bucket,"best_model.pt","./best_model.pt")
 
 if __name__ == "__main__":
     train()
