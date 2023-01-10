@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: pytorch-image-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18, pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-04T13:10:19.353687',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18, pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-08T22:42:06.352628',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "training mnist data from
       minio in docker image", "name": "pytorch image pipeline"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18}
@@ -12,7 +12,7 @@ spec:
   - name: java-app
     container:
       command: [java, Hello]
-      image: krizel2121/java-docker-app
+      image: kimkihoon0515/java-docker-app
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
@@ -20,13 +20,19 @@ spec:
         pipelines.kubeflow.org/enable_caching: "true"
   - name: pytorch-data-upload
     container:
-      command: [python, data.py]
-      image: kimkihoon0515/pytorch-data
+      args: [--download_root, ./MNIST_dataset, --minio_bucket, mlpipeline]
+      command: [python, data_download.py]
+      image: kimkihoon0515/pytorch-data:macbook1
+      volumeMounts:
+      - {mountPath: ./MNIST_dataset, name: model}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
         pipelines.kubeflow.org/pipeline-sdk-type: kfp
         pipelines.kubeflow.org/enable_caching: "true"
+    volumes:
+    - name: model
+      persistentVolumeClaim: {claimName: model-volume}
   - name: pytorch-image-pipeline
     dag:
       tasks:
@@ -39,13 +45,25 @@ spec:
         dependencies: [pytorch-data-upload]
   - name: pytorch-mnist-train
     container:
+      args: [--epochs, '3']
       command: [python, train.py]
-      image: kimkihoon0515/pytorch-train
+      image: kimkihoon0515/pytorch-train:macbook4
+      volumeMounts:
+      - {mountPath: ./model, name: model}
+      - {mountPath: ./data, name: data}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-metrics, path: ./mlpipeline-metrics.json}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
         pipelines.kubeflow.org/pipeline-sdk-type: kfp
         pipelines.kubeflow.org/enable_caching: "true"
+    volumes:
+    - name: data
+      persistentVolumeClaim: {claimName: data-volume}
+    - name: model
+      persistentVolumeClaim: {claimName: model-volume}
   arguments:
     parameters: []
   serviceAccountName: pipeline-runner

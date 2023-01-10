@@ -1,11 +1,21 @@
-def train():
+import argparse
+
+def train(args):
   import torch.nn as nn
   import torch
   from torchvision import datasets
   from torchvision import transforms
   from torch.utils.data import DataLoader
   import numpy as np
+  import json
   import os
+
+  if not os.path.exists("./model"):
+    os.mkdir("./model")
+
+  if not os.path.exists("./data"):
+    os.mkdir("./data")
+
   class Net(nn.Module): # 모델 클래스 정의 부분
       
       def __init__(self):
@@ -27,7 +37,7 @@ def train():
   from minio import Minio
 
   minio_client = Minio(
-      "172.17.0.38:9000",
+      "172.17.0.11:9000",
       access_key="minio",
       secret_key="minio123",
       secure=False
@@ -48,6 +58,7 @@ def train():
                           transform=transforms.ToTensor(), 
                           download=False) # 평가 dataset 정의
 
+
   batch_size = 100 # 배치 사이즈 정의. 데이터셋을 잘개 쪼개서 묶음으로 만드는 데 기여한다.
   train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True) # 학습 데이터셋을 배치 사이즈 크기만큼씩 잘라서 묶음으로 만든다. 묶음의 개수는 train_dataset / batch_size
   test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True) # train_dataloader와 마찬가지
@@ -56,11 +67,10 @@ def train():
   loss_function = nn.CrossEntropyLoss() # 실제 정답과 예측값의 차이를 수치화해주는 함수.
 
   optimizer = torch.optim.SGD(model.parameters(),lr=0.01,momentum=0.9)
-  epochs = 10# 얼마나 학습할 지 정하는 인자.
+  epochs = args.epochs# 얼마나 학습할 지 정하는 인자.
 
   best_accuracy = 0 # 평가 지표
   model.zero_grad() # 학습 전에 모델의 모든 weight, bias 값들을 초기화
-
   
   for epoch in range(epochs):
     
@@ -99,13 +109,30 @@ def train():
 
     if best_accuracy < val_accuracy: # 성능이 가장 좋은 모델로 갱신
       best_accuracy = val_accuracy
-      torch.save(model.state_dict(),'best_model.pt')
+      best_val_loss = val_loss
+      torch.save(model.state_dict(),'./model/best_model.pt')
       print(f"===========> Save Model(Epoch: {epoch}, Accuracy: {best_accuracy:.5})")
+    
 
     print("--------------------------------------------------------------------------------------------")
-  print(os.listdir('./'))
-  print("hi")
-  minio_client.fput_object(minio_bucket,"best_model.pt","./best_model.pt")
+  
+  metrics = {
+        'metrics': [{
+            'name': 'accuracy-score',
+            'numberValue':  best_accuracy,
+            'format': "PERCENTAGE",
+        }]
+    }
+  
+  with open('./mlpipeline-metrics.json','w') as f:
+    json.dump(metrics,f)
+
+  minio_client.fput_object(minio_bucket,"best_model.pt","./model/best_model.pt")
+
+  print("best_model uploaded to minio!")
 
 if __name__ == "__main__":
-    train()
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--epochs',type=int)
+  args = parser.parse_args()
+  train(args)

@@ -3,4 +3,4 @@ RUN mkdir /code
 WORKDIR /code
 COPY . /code/
 RUN pip install -r requirements.txt
-CMD ["python","train.py"]
+CMD ["python","train.py","--epochs=2"]

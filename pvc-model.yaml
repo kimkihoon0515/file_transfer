@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: k8s.io/minikube-hostpath
+    volume.kubernetes.io/storage-provisioner: k8s.io/minikube-hostpath
+  creationTimestamp: "2023-01-08T09:50:59Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: model
+  namespace: kubeflow-user-example-com
+  resourceVersion: "5150791"
+  uid: ced090d7-8461-4958-a9ab-290aba433791
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+  volumeName: pvc-ced090d7-8461-4958-a9ab-290aba433791
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 10Gi
+  phase: Bound

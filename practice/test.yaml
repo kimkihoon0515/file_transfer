@@ -1,0 +1,157 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: practice-pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18, pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-09T22:53:49.449145',
+    pipelines.kubeflow.org/pipeline_spec: '{"name": "practice-pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18}
+spec:
+  entrypoint: practice-pipeline
+  templates:
+  - name: download-dataset
+    container:
+      args: []
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - "def download_dataset(): \n    from torchvision import datasets\n    from\
+        \ torchvision import transforms\n    from torch.utils.data import DataLoader\n\
+        \    import os\n    download_root = '/MNIST_data/' \n\n    train_dataset =\
+        \ datasets.MNIST(root=download_root,\n                            train=True,\n\
+        \                            transform=transforms.ToTensor(),\n          \
+        \                  download=True) \n\n    test_dataset = datasets.MNIST(root=download_root,\n\
+        \                            train=False,\n                            transform=transforms.ToTensor(),\
+        \ \n                            download=True) \n\n    batch_size = 100 \n\
+        \nimport argparse\n_parser = argparse.ArgumentParser(prog='Download dataset',\
+        \ description='')\n_parsed_args = vars(_parser.parse_args())\n\n_outputs =\
+        \ download_dataset(**_parsed_args)\n"
+      image: public.ecr.aws/j1r0q0g6/notebooks/notebook-servers/jupyter-pytorch:v1.5.0
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": [], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\"
+          \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def
+          download_dataset(): \n    from torchvision import datasets\n    from torchvision
+          import transforms\n    from torch.utils.data import DataLoader\n    import
+          os\n    download_root = ''/MNIST_data/'' \n\n    train_dataset = datasets.MNIST(root=download_root,\n                            train=True,\n                            transform=transforms.ToTensor(),\n                            download=True)
+          \n\n    test_dataset = datasets.MNIST(root=download_root,\n                            train=False,\n                            transform=transforms.ToTensor(),
+          \n                            download=True) \n\n    batch_size = 100 \n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Download dataset'', description='''')\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = download_dataset(**_parsed_args)\n"],
+          "image": "public.ecr.aws/j1r0q0g6/notebooks/notebook-servers/jupyter-pytorch:v1.5.0"}},
+          "name": "Download dataset"}', pipelines.kubeflow.org/component_ref: '{}'}
+  - name: practice-pipeline
+    dag:
+      tasks:
+      - {name: download-dataset, template: download-dataset}
+      - name: train
+        template: train
+        dependencies: [download-dataset]
+  - name: train
+    container:
+      args: []
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - "def train():\n  import torch.nn as nn\n  import torch\n  from torchvision\
+        \ import datasets\n  from torchvision import transforms\n  from torch.utils.data\
+        \ import DataLoader\n  import numpy as np\n  import json\n  import os\n\n\
+        \  class Net(nn.Module): \n\n      def __init__(self):\n          super(Net,\
+        \ self).__init__()\n          self.fc1 = nn.Linear(784,100) \n          self.relu\
+        \ = nn.ReLU()\n          self.fc2 = nn.Linear(100,100) \n          self.fc3\
+        \ = nn.Linear(100,10) \n\n      def forward(self, x): \n          x1 = self.fc1(x)\n\
+        \          x2 = self.relu(x1)\n          x3 = self.fc2(x2)\n          x4 =\
+        \ self.relu(x3)\n          x5 = self.fc3(x4)\n\n          return x5\n\n  download_root\
+        \ = './MNIST_data'\n\n  train_dataset = datasets.MNIST(root=download_root,\n\
+        \                          train=True,\n                          transform=transforms.ToTensor(),\n\
+        \                          download=True) \n\n  test_dataset = datasets.MNIST(root=download_root,\n\
+        \                          train=False,\n                          transform=transforms.ToTensor(),\
+        \ \n                          download=True) \n\n  batch_size = 100\n  train_loader\
+        \ = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)\n  test_loader\
+        \ = DataLoader(test_dataset, batch_size=batch_size, shuffle=True) \n\n  model\
+        \ = Net() \n  loss_function = nn.CrossEntropyLoss() \n\n  optimizer = torch.optim.SGD(model.parameters(),lr=0.01,momentum=0.9)\n\
+        \  epochs = 1\n\n  best_accuracy = 0\n  model.zero_grad() \n\n  for epoch\
+        \ in range(epochs):\n\n    model.train() \n    train_accuracy = 0 \n    train_loss\
+        \ = 0 \n\n    for images, labels in train_loader:\n      images = images.reshape(batch_size,784)\n\
+        \      image = model(images)\n      loss = loss_function(image,labels)\n\n\
+        \      optimizer.zero_grad()\n      loss.backward()\n      optimizer.step()\n\
+        \n      prediction = torch.argmax(image,1)\n      correct = (prediction ==\
+        \ labels)\n      train_accuracy+= correct.sum().item() / len(train_dataset)\n\
+        \      train_loss += loss.item() / len(train_loader)\n\n    model.eval() \n\
+        \    val_accuracy = 0 \n    val_loss = 0 \n\n    for images,labels in test_loader:\n\
+        \      images = images.reshape(batch_size,784)\n      image = model(images)\n\
+        \      loss = loss_function(image,labels)\n\n      correct = (torch.argmax(image,1)\
+        \ == labels)\n      val_accuracy += correct.sum().item() / len(test_dataset)\n\
+        \      val_loss += loss.item() / len(test_loader)\n\n    print(f'epoch: {epoch}/{epochs}\
+        \ train_loss: {train_loss:.5} train_accuracy: {train_accuracy:.5} val_loss:\
+        \ {val_loss:.5} val_accuracy: {val_accuracy:.5}')\n\n    if best_accuracy\
+        \ < val_accuracy: \n      best_accuracy = val_accuracy\n      best_val_loss\
+        \ = val_loss\n      torch.save(model.state_dict(),'./best_model.pt')\n   \
+        \   print(f\"===========> Save Model(Epoch: {epoch}, Accuracy: {best_accuracy:.5})\"\
+        )\n\n    print(\"--------------------------------------------------------------------------------------------\"\
+        )\n\n  metrics = {\n        'metrics': [{\n            'name': 'accuracy-score',\n\
+        \            'numberValue':  best_accuracy,\n            'format': \"PERCENTAGE\"\
+        ,\n        }]\n    }\n\n  with open('./mlpipeline-metrics.json','w') as f:\n\
+        \    json.dump(metrics,f)\n\n  print(\"best_model uploaded to pvc!\")\n\n\
+        import argparse\n_parser = argparse.ArgumentParser(prog='Train', description='')\n\
+        _parsed_args = vars(_parser.parse_args())\n\n_outputs = train(**_parsed_args)\n"
+      image: public.ecr.aws/j1r0q0g6/notebooks/notebook-servers/jupyter-pytorch:v1.5.0
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": [], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\"
+          \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def
+          train():\n  import torch.nn as nn\n  import torch\n  from torchvision import
+          datasets\n  from torchvision import transforms\n  from torch.utils.data
+          import DataLoader\n  import numpy as np\n  import json\n  import os\n\n  class
+          Net(nn.Module): \n\n      def __init__(self):\n          super(Net, self).__init__()\n          self.fc1
+          = nn.Linear(784,100) \n          self.relu = nn.ReLU()\n          self.fc2
+          = nn.Linear(100,100) \n          self.fc3 = nn.Linear(100,10) \n\n      def
+          forward(self, x): \n          x1 = self.fc1(x)\n          x2 = self.relu(x1)\n          x3
+          = self.fc2(x2)\n          x4 = self.relu(x3)\n          x5 = self.fc3(x4)\n\n          return
+          x5\n\n  download_root = ''./MNIST_data''\n\n  train_dataset = datasets.MNIST(root=download_root,\n                          train=True,\n                          transform=transforms.ToTensor(),\n                          download=True)
+          \n\n  test_dataset = datasets.MNIST(root=download_root,\n                          train=False,\n                          transform=transforms.ToTensor(),
+          \n                          download=True) \n\n  batch_size = 100\n  train_loader
+          = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)\n  test_loader
+          = DataLoader(test_dataset, batch_size=batch_size, shuffle=True) \n\n  model
+          = Net() \n  loss_function = nn.CrossEntropyLoss() \n\n  optimizer = torch.optim.SGD(model.parameters(),lr=0.01,momentum=0.9)\n  epochs
+          = 1\n\n  best_accuracy = 0\n  model.zero_grad() \n\n  for epoch in range(epochs):\n\n    model.train()
+          \n    train_accuracy = 0 \n    train_loss = 0 \n\n    for images, labels
+          in train_loader:\n      images = images.reshape(batch_size,784)\n      image
+          = model(images)\n      loss = loss_function(image,labels)\n\n      optimizer.zero_grad()\n      loss.backward()\n      optimizer.step()\n\n      prediction
+          = torch.argmax(image,1)\n      correct = (prediction == labels)\n      train_accuracy+=
+          correct.sum().item() / len(train_dataset)\n      train_loss += loss.item()
+          / len(train_loader)\n\n    model.eval() \n    val_accuracy = 0 \n    val_loss
+          = 0 \n\n    for images,labels in test_loader:\n      images = images.reshape(batch_size,784)\n      image
+          = model(images)\n      loss = loss_function(image,labels)\n\n      correct
+          = (torch.argmax(image,1) == labels)\n      val_accuracy += correct.sum().item()
+          / len(test_dataset)\n      val_loss += loss.item() / len(test_loader)\n\n    print(f''epoch:
+          {epoch}/{epochs} train_loss: {train_loss:.5} train_accuracy: {train_accuracy:.5}
+          val_loss: {val_loss:.5} val_accuracy: {val_accuracy:.5}'')\n\n    if best_accuracy
+          < val_accuracy: \n      best_accuracy = val_accuracy\n      best_val_loss
+          = val_loss\n      torch.save(model.state_dict(),''./best_model.pt'')\n      print(f\"===========>
+          Save Model(Epoch: {epoch}, Accuracy: {best_accuracy:.5})\")\n\n    print(\"--------------------------------------------------------------------------------------------\")\n\n  metrics
+          = {\n        ''metrics'': [{\n            ''name'': ''accuracy-score'',\n            ''numberValue'':  best_accuracy,\n            ''format'':
+          \"PERCENTAGE\",\n        }]\n    }\n\n  with open(''./mlpipeline-metrics.json'',''w'')
+          as f:\n    json.dump(metrics,f)\n\n  print(\"best_model uploaded to pvc!\")\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Train'', description='''')\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = train(**_parsed_args)\n"], "image":
+          "public.ecr.aws/j1r0q0g6/notebooks/notebook-servers/jupyter-pytorch:v1.5.0"}},
+          "name": "Train"}', pipelines.kubeflow.org/component_ref: '{}'}
+  arguments:
+    parameters: []
+  serviceAccountName: pipeline-runner

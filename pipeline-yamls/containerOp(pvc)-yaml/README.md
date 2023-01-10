@@ -1,0 +1,1 @@
+기본 containerOp에 pvc도 붙이고 출력값과 arguments도 넣은 yaml 입니다.
