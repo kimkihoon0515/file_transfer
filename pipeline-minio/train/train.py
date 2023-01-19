@@ -37,7 +37,7 @@ def train(args):
   from minio import Minio
 
   minio_client = Minio(
-      "172.17.0.11:9000",
+      "172.17.0.27:9000", # minio ip:port 
       access_key="minio",
       secret_key="minio123",
       secure=False
@@ -115,17 +115,6 @@ def train(args):
     
 
     print("--------------------------------------------------------------------------------------------")
-  
-  metrics = {
-        'metrics': [{
-            'name': 'accuracy-score',
-            'numberValue':  best_accuracy,
-            'format': "PERCENTAGE",
-        }]
-    }
-  
-  with open('./mlpipeline-metrics.json','w') as f:
-    json.dump(metrics,f)
 
   minio_client.fput_object(minio_bucket,"best_model.pt","./model/best_model.pt")
 
@@ -133,6 +122,6 @@ def train(args):
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
-  parser.add_argument('--epochs',type=int)
+  parser.add_argument('--epochs',type=int,default=2)
   args = parser.parse_args()
   train(args)

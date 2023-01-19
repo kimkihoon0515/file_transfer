@@ -41,7 +41,7 @@ def download_dataset(args):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True) # train_dataloader와 마찬가지
 
     minio_client = Minio(
-        "172.17.0.11:9000",
+        "172.17.0.27:9000", # minio pod ip:port
         access_key="minio",
         secret_key="minio123",
         secure=False
@@ -58,7 +58,7 @@ def download_dataset(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--download_root',type=str)
-    parser.add_argument('--minio_bucket',type=str)
+    parser.add_argument('--download_root',type=str,default='/MNIST_DATA')
+    parser.add_argument('--minio_bucket',type=str,default='mlpipeline')
     args = parser.parse_args()
     download_dataset(args)

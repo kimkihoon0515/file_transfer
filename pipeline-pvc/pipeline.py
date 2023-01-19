@@ -8,7 +8,7 @@ def data():
         image="kimkihoon0515/pvc-data",
         command=["python","data.py"],
         arguments=["--download_root",'/home/jovyan']
-    ).apply(onprem.mount_pvc("model-volume",volume_name="pipeline",volume_mount_path="/home/jovyan"))
+    ).apply(onprem.mount_pvc("kfp-pvc",volume_name="pipeline",volume_mount_path="/mnt/pipeline"))
 
 
 def train():
@@ -20,7 +20,7 @@ def train():
             file_outputs={
                 "mlpipeline_metrics": "/home/jovyan/mlpipeline-metrics.json"
             }
-        ).apply(onprem.mount_pvc("model-volume",volume_name="pipeline",volume_mount_path="/home/jovyan"))
+        ).apply(onprem.mount_pvc("kfp-pvc",volume_name="pipeline",volume_mount_path="/mnt/pipeline"))
 
 def jav():
     return dsl.ContainerOp(

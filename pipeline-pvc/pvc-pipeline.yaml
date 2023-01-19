@@ -2,20 +2,29 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: pytorch-image-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18, pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-09T09:20:32.228566',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18, pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-10T09:39:16.919373',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "training mnist data from
       minio in docker image", "name": "pytorch image pipeline"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.18}
 spec:
   entrypoint: pytorch-image-pipeline
   templates:
+  - name: java-app
+    container:
+      command: [java, Hello]
+      image: kimkihoon0515/java-docker-app
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
   - name: pytorch-data-upload
     container:
       args: [--download_root, /home/jovyan]
       command: [python, data.py]
       image: kimkihoon0515/pvc-data
       volumeMounts:
-      - {mountPath: /home/jovyan, name: pipeline}
+      - {mountPath: /mnt/pipeline, name: pipeline}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
@@ -23,10 +32,13 @@ spec:
         pipelines.kubeflow.org/enable_caching: "true"
     volumes:
     - name: pipeline
-      persistentVolumeClaim: {claimName: model-volume}
+      persistentVolumeClaim: {claimName: kfp-pvc}
   - name: pytorch-image-pipeline
     dag:
       tasks:
+      - name: java-app
+        template: java-app
+        dependencies: [pytorch-mnist-train]
       - {name: pytorch-data-upload, template: pytorch-data-upload}
       - name: pytorch-mnist-train
         template: pytorch-mnist-train
@@ -37,7 +49,7 @@ spec:
       command: [python, train.py]
       image: kimkihoon0515/pvc-train
       volumeMounts:
-      - {mountPath: /home/jovyan, name: pipeline}
+      - {mountPath: /mnt/pipeline, name: pipeline}
     outputs:
       artifacts:
       - {name: mlpipeline-metrics, path: /home/jovyan/mlpipeline-metrics.json}
@@ -48,7 +60,7 @@ spec:
         pipelines.kubeflow.org/enable_caching: "true"
     volumes:
     - name: pipeline
-      persistentVolumeClaim: {claimName: model-volume}
+      persistentVolumeClaim: {claimName: kfp-pvc}
   arguments:
     parameters: []
   serviceAccountName: pipeline-runner

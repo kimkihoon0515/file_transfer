@@ -1,9 +1,5 @@
 from torchvision import datasets
 from torchvision import transforms
-from torch.utils.data import DataLoader
-from minio import Minio
-import os
-from typing import NamedTuple
 import argparse
 
 def download_dataset(args): 
@@ -26,6 +22,6 @@ def download_dataset(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--download_root',type=str)
+    parser.add_argument('--download_root',type=str,default='/home/jovyan')
     args = parser.parse_args()
     download_dataset(args)

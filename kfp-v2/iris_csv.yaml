@@ -1,0 +1,233 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: iris-
+  annotations:
+    pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+    pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-16T23:09:55.133081'
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "iris", "inputs": [{"default":
+      "", "name": "pipeline-root"}, {"default": "pipeline/Iris", "name": "pipeline-name"}],
+      "name": "Iris"}'
+    pipelines.kubeflow.org/v2_pipeline: "true"
+  labels:
+    pipelines.kubeflow.org/v2_pipeline: "true"
+    pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+spec:
+  entrypoint: iris
+  templates:
+  - name: iris
+    inputs:
+      parameters:
+      - {name: pipeline-name}
+      - {name: pipeline-root}
+    dag:
+      tasks:
+      - name: load
+        template: load
+        arguments:
+          parameters:
+          - {name: pipeline-name, value: '{{inputs.parameters.pipeline-name}}'}
+          - {name: pipeline-root, value: '{{inputs.parameters.pipeline-root}}'}
+      - name: print-head
+        template: print-head
+        dependencies: [load]
+        arguments:
+          parameters:
+          - {name: pipeline-name, value: '{{inputs.parameters.pipeline-name}}'}
+          - {name: pipeline-root, value: '{{inputs.parameters.pipeline-root}}'}
+          artifacts:
+          - {name: load-data, from: '{{tasks.load.outputs.artifacts.load-data}}'}
+  - name: load
+    container:
+      args:
+      - sh
+      - -c
+      - |2
+
+        if ! [ -x "$(command -v pip)" ]; then
+            python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip
+        fi
+
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet     --no-warn-script-location 'pandas' 'scikit-learn' 'kfp==1.8.18' && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp -d)
+        printf "%s" "$0" > "$program_path/ephemeral_component.py"
+        python3 -m kfp.v2.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+      - |2+
+
+        import kfp
+        from kfp.v2 import dsl
+        from kfp.v2.dsl import *
+        from typing import *
+
+        def load(data: Output[Dataset]):
+            import pandas as pd
+            from sklearn import datasets
+
+            dataset = datasets.load_iris()
+            df = pd.DataFrame(data=dataset.data, columns= ["Petal Length", "Petal Width", "Sepal Length", "Sepal Width"])
+
+            df.to_csv(data.path)
+
+      - --executor_input
+      - '{{$}}'
+      - --function_to_execute
+      - load
+      command: [/kfp-launcher/launch, --mlmd_server_address, $(METADATA_GRPC_SERVICE_HOST),
+        --mlmd_server_port, $(METADATA_GRPC_SERVICE_PORT), --runtime_info_json, $(KFP_V2_RUNTIME_INFO),
+        --container_image, $(KFP_V2_IMAGE), --task_name, load, --pipeline_name, '{{inputs.parameters.pipeline-name}}',
+        --run_id, $(KFP_RUN_ID), --run_resource, workflows.argoproj.io/$(WORKFLOW_ID),
+        --namespace, $(KFP_NAMESPACE), --pod_name, $(KFP_POD_NAME), --pod_uid, $(KFP_POD_UID),
+        --pipeline_root, '{{inputs.parameters.pipeline-root}}', --enable_caching,
+        $(ENABLE_CACHING), --, --]
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef: {fieldPath: metadata.name}
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef: {fieldPath: metadata.uid}
+      - name: KFP_NAMESPACE
+        valueFrom:
+          fieldRef: {fieldPath: metadata.namespace}
+      - name: WORKFLOW_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''workflows.argoproj.io/workflow'']'}
+      - name: KFP_RUN_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipeline/runid'']'}
+      - name: ENABLE_CACHING
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipelines.kubeflow.org/enable_caching'']'}
+      - {name: KFP_V2_IMAGE, value: 'python:3.7'}
+      - {name: KFP_V2_RUNTIME_INFO, value: '{"inputParameters": {}, "inputArtifacts":
+          {}, "outputParameters": {}, "outputArtifacts": {"data": {"schemaTitle":
+          "system.Dataset", "instanceSchema": "", "schemaVersion": "0.0.1", "metadataPath":
+          "/tmp/outputs/data/data"}}}'}
+      envFrom:
+      - configMapRef: {name: metadata-grpc-configmap, optional: true}
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /kfp-launcher, name: kfp-launcher}
+    inputs:
+      parameters:
+      - {name: pipeline-name}
+      - {name: pipeline-root}
+    outputs:
+      artifacts:
+      - {name: load-data, path: /tmp/outputs/data/data}
+    metadata:
+      annotations:
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/component_ref: '{}'
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/enable_caching: "true"
+    initContainers:
+    - command: [launcher, --copy, /kfp-launcher/launch]
+      image: gcr.io/ml-pipeline/kfp-launcher:1.8.7
+      name: kfp-launcher
+      mirrorVolumeMounts: true
+    volumes:
+    - {name: kfp-launcher}
+  - name: print-head
+    container:
+      args:
+      - sh
+      - -c
+      - |2
+
+        if ! [ -x "$(command -v pip)" ]; then
+            python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip
+        fi
+
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet     --no-warn-script-location 'pandas' 'kfp==1.8.18' && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp -d)
+        printf "%s" "$0" > "$program_path/ephemeral_component.py"
+        python3 -m kfp.v2.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+      - |2+
+
+        import kfp
+        from kfp.v2 import dsl
+        from kfp.v2.dsl import *
+        from typing import *
+
+        def print_head(data: Input[Dataset]):
+            import pandas as pd
+            df = pd.read_csv(data.path)
+            print(df.head())
+
+      - --executor_input
+      - '{{$}}'
+      - --function_to_execute
+      - print_head
+      command: [/kfp-launcher/launch, --mlmd_server_address, $(METADATA_GRPC_SERVICE_HOST),
+        --mlmd_server_port, $(METADATA_GRPC_SERVICE_PORT), --runtime_info_json, $(KFP_V2_RUNTIME_INFO),
+        --container_image, $(KFP_V2_IMAGE), --task_name, print-head, --pipeline_name,
+        '{{inputs.parameters.pipeline-name}}', --run_id, $(KFP_RUN_ID), --run_resource,
+        workflows.argoproj.io/$(WORKFLOW_ID), --namespace, $(KFP_NAMESPACE), --pod_name,
+        $(KFP_POD_NAME), --pod_uid, $(KFP_POD_UID), --pipeline_root, '{{inputs.parameters.pipeline-root}}',
+        --enable_caching, $(ENABLE_CACHING), --, --]
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef: {fieldPath: metadata.name}
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef: {fieldPath: metadata.uid}
+      - name: KFP_NAMESPACE
+        valueFrom:
+          fieldRef: {fieldPath: metadata.namespace}
+      - name: WORKFLOW_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''workflows.argoproj.io/workflow'']'}
+      - name: KFP_RUN_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipeline/runid'']'}
+      - name: ENABLE_CACHING
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipelines.kubeflow.org/enable_caching'']'}
+      - {name: KFP_V2_IMAGE, value: 'python:3.7'}
+      - {name: KFP_V2_RUNTIME_INFO, value: '{"inputParameters": {}, "inputArtifacts":
+          {"data": {"metadataPath": "/tmp/inputs/data/data", "schemaTitle": "system.Dataset",
+          "instanceSchema": "", "schemaVersion": "0.0.1"}}, "outputParameters": {},
+          "outputArtifacts": {}}'}
+      envFrom:
+      - configMapRef: {name: metadata-grpc-configmap, optional: true}
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /kfp-launcher, name: kfp-launcher}
+    inputs:
+      parameters:
+      - {name: pipeline-name}
+      - {name: pipeline-root}
+      artifacts:
+      - {name: load-data, path: /tmp/inputs/data/data}
+    metadata:
+      annotations:
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/component_ref: '{}'
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.18
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/enable_caching: "true"
+    initContainers:
+    - command: [launcher, --copy, /kfp-launcher/launch]
+      image: gcr.io/ml-pipeline/kfp-launcher:1.8.7
+      name: kfp-launcher
+      mirrorVolumeMounts: true
+    volumes:
+    - {name: kfp-launcher}
+  arguments:
+    parameters:
+    - {name: pipeline-root, value: ''}
+    - {name: pipeline-name, value: pipeline/Iris}
+  serviceAccountName: pipeline-runner
