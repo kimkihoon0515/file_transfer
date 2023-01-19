@@ -22,6 +22,6 @@ def download_dataset(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--download_root',type=str,default='/home/jovyan')
+    parser.add_argument('--download_root',type=str,default='/home/jovyan') # Notebook을 통해 mount 결과 확인을 위해 mount 경로 설정.
     args = parser.parse_args()
     download_dataset(args)
