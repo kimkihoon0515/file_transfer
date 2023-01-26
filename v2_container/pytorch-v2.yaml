@@ -1,0 +1,59 @@
+components:
+  comp-data:
+    executorLabel: exec-data
+  comp-java:
+    executorLabel: exec-java
+  comp-train:
+    executorLabel: exec-train
+deploymentSpec:
+  executors:
+    exec-data:
+      container:
+        command:
+        - python
+        - data.py
+        image: kimkihoon0515/pytorch-data:pws
+    exec-java:
+      container:
+        command:
+        - java
+        - Hello
+        image: kimkihoon0515/java-docker-app
+    exec-train:
+      container:
+        command:
+        - python
+        - train.py
+        image: kimkihoon0515/pytorch-train:pws
+pipelineInfo:
+  name: pytorch-v2
+root:
+  dag:
+    tasks:
+      data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-data
+        taskInfo:
+          name: data
+      java:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-java
+        dependentTasks:
+        - train
+        taskInfo:
+          name: java
+      train:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train
+        dependentTasks:
+        - data
+        taskInfo:
+          name: train
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.0.0-beta.2

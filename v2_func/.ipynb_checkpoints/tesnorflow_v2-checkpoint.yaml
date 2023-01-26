@@ -1,0 +1,216 @@
+components:
+  comp-get-data-batch:
+    executorLabel: exec-get-data-batch
+  comp-model-building:
+    executorLabel: exec-model-building
+    inputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-reshape-data:
+    executorLabel: exec-reshape-data
+    outputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-get-data-batch:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - get_data_batch
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'kfp==2.0.0-beta.2'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef get_data_batch():\n\n    print(\"getting data\")\n    from tensorflow\
+          \ import keras\n    from minio import Minio\n    import numpy as np\n  \
+          \  import json\n\n    minio_client = Minio(\n        \"172.17.0.48:9000\"\
+          ,\n        access_key=\"minio\",\n        secret_key=\"minio123\",\n   \
+          \     secure=False\n    )\n    minio_bucket = \"mlpipeline\"\n\n    minio_client.fget_object(minio_bucket,\"\
+          mnist.npz\",\"/tmp/mnist.npz\")\n\n    def load_data():\n        with np.load(\"\
+          /tmp/mnist.npz\", allow_pickle=True) as f:\n            x_train, y_train\
+          \ = f[\"x_train\"], f[\"y_train\"]\n            x_test, y_test = f[\"x_test\"\
+          ], f[\"y_test\"]\n\n        return (x_train, y_train), (x_test, y_test)\n\
+          \n    # Get MNIST data directly from library\n    (x_train, y_train), (x_test,\
+          \ y_test) = load_data()\n\n    # save to numpy file, store in Minio\n  \
+          \  np.save(\"/tmp/x_train.npy\",x_train)\n    minio_client.fput_object(minio_bucket,\"\
+          x_train\",\"/tmp/x_train.npy\")\n\n    np.save(\"/tmp/y_train.npy\",y_train)\n\
+          \    minio_client.fput_object(minio_bucket,\"y_train\",\"/tmp/y_train.npy\"\
+          )\n\n    np.save(\"/tmp/x_test.npy\",x_test)\n    minio_client.fput_object(minio_bucket,\"\
+          x_test\",\"/tmp/x_test.npy\")\n\n    np.save(\"/tmp/y_test.npy\",y_test)\n\
+          \    minio_client.fput_object(minio_bucket,\"y_test\",\"/tmp/y_test.npy\"\
+          )    \n\n"
+        image: public.ecr.aws/j1r0q0g6/notebooks/notebook-servers/jupyter-tensorflow-full:v1.5.0
+    exec-model-building:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_building
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'kfp==2.0.0-beta.2'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef model_building(\n    dataset: Input[Dataset],\n    model: Output[Model],\n\
+          \    metrics: Output[Metrics]\n):\n    \"\"\"\n    Build the model with\
+          \ Keras API\n    Export model parameters\n    \"\"\"\n    from tensorflow\
+          \ import keras\n    import tensorflow as tf\n    from minio import Minio\n\
+          \    import numpy as np\n    import pandas as pd\n\n\n    minio_client =\
+          \ Minio(\n        \"172.17.0.48:9000\",\n        access_key=\"minio\",\n\
+          \        secret_key=\"minio123\",\n        secure=False\n    )\n    minio_bucket\
+          \ = \"mlpipeline\"\n\n    with open(dataset.path, \"rb\") as f:\n      \
+          \  dataset = np.load(f)\n        x_train, y_train = dataset[\"x_train\"\
+          ], dataset[\"y_train\"]\n        x_test, y_test = dataset[\"x_test\"], dataset[\"\
+          y_test\"]\n\n\n    train_model = keras.models.Sequential()\n    train_model.add(keras.layers.Conv2D(64,\
+          \ (3, 3), activation='relu', input_shape=(28,28,1)))\n    train_model.add(keras.layers.MaxPool2D(2,\
+          \ 2))\n\n    train_model.add(keras.layers.Flatten())\n    train_model.add(keras.layers.Dense(64,\
+          \ activation='relu'))\n\n    train_model.add(keras.layers.Dense(32, activation='relu'))\n\
+          \n    train_model.add(keras.layers.Dense(10, activation='softmax')) #output\
+          \ are 10 classes, numbers from 0-9\n\n\n    #compile the model - we want\
+          \ to have a binary outcome\n\n    optimizer = keras.optimizers.Adam(learning_rate=0.01)\n\
+          \n    train_model.compile(optimizer=optimizer,\n              loss=\"sparse_categorical_crossentropy\"\
+          ,\n              metrics=['accuracy'])\n\n    #fit the model and return\
+          \ the history while training\n    history = train_model.fit(\n      x=x_train,\n\
+          \      y=y_train,\n      epochs=1,\n      batch_size=20,\n    )\n\n\n  \
+          \  # Test the model against the test dataset\n    # Returns the loss value\
+          \ & metrics values for the model in test mode.\n    model_loss, model_accuracy\
+          \ = train_model.evaluate(x=x_test,y=y_test)\n\n    metrics.log_metric(\"\
+          accuracy\", (model_accuracy*100))\n    metrics.log_metric(\"framework\"\
+          , \"Tensorflow\")\n\n    train_model.save(model.path)\n\n"
+        image: public.ecr.aws/j1r0q0g6/notebooks/notebook-servers/jupyter-tensorflow-full:v1.5.0
+    exec-reshape-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - reshape_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'kfp==2.0.0-beta.2'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef reshape_data(\n    dataset: Output[Dataset]\n):\n    \"\"\"\n\
+          \    Reshape the data for model building\n    \"\"\"\n    print(\"reshaping\
+          \ data\")\n\n    from minio import Minio\n    import numpy as np\n    import\
+          \ os\n\n    minio_client = Minio(\n        \"172.17.0.48:9000\",\n     \
+          \   access_key=\"minio\",\n        secret_key=\"minio123\",\n        secure=False\n\
+          \    )\n    minio_bucket = \"mlpipeline\"\n\n    # load data from minio\n\
+          \    minio_client.fget_object(minio_bucket,\"x_train\",\"/tmp/x_train.npy\"\
+          )\n    x_train = np.load(\"/tmp/x_train.npy\")\n\n    minio_client.fget_object(minio_bucket,\"\
+          x_test\",\"/tmp/x_test.npy\")\n    x_test = np.load(\"/tmp/x_test.npy\"\
+          )\n\n    # reshaping the data\n    # reshaping pixels in a 28x28px image\
+          \ with greyscale, canal = 1. This is needed for the Keras API\n    x_train\
+          \ = x_train.reshape(-1,28,28,1)\n    x_test = x_test.reshape(-1,28,28,1)\n\
+          \n    # normalizing the data\n    # each pixel has a value between 0-255.\
+          \ Here we divide by 255, to get values from 0-1\n    x_train = x_train /\
+          \ 255\n    x_test = x_test / 255\n\n    with open(dataset.path, \"wb\")\
+          \ as f:\n        np.savez(\n            f,\n            x_train=x_train,\n\
+          \            y_train=y_train,\n            x_test=x_test,\n            y_test=y_test\n\
+          \        )\n\n"
+        image: public.ecr.aws/j1r0q0g6/notebooks/notebook-servers/jupyter-tensorflow-full:v1.5.0
+pipelineInfo:
+  name: tensorflow-v2-i-o
+root:
+  dag:
+    outputs:
+      artifacts:
+        model-building-metrics:
+          artifactSelectors:
+          - outputArtifactKey: metrics
+            producerSubtask: model-building
+    tasks:
+      get-data-batch:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-get-data-batch
+        taskInfo:
+          name: get-data-batch
+      model-building:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-building
+        dependentTasks:
+        - reshape-data
+        inputs:
+          artifacts:
+            dataset:
+              taskOutputArtifact:
+                outputArtifactKey: dataset
+                producerTask: reshape-data
+        taskInfo:
+          name: model-building
+      reshape-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-reshape-data
+        taskInfo:
+          name: reshape-data
+  outputDefinitions:
+    artifacts:
+      model-building-metrics:
+        artifactType:
+          schemaTitle: system.Metrics
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.0.0-beta.2

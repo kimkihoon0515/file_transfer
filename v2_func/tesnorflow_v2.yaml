@@ -1,0 +1,192 @@
+components:
+  comp-load-data:
+    executorLabel: exec-load-data
+    outputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-model-building:
+    executorLabel: exec-model-building
+    inputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        lr:
+          parameterType: NUMBER_DOUBLE
+        no_epochs:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        conf_matrix:
+          artifactType:
+            schemaTitle: system.ClassificationMetrics
+            schemaVersion: 0.0.1
+        metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        model_summary:
+          artifactType:
+            schemaTitle: system.Markdown
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-load-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - load_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'tensorflow'\
+          \ 'numpy' 'kfp==2.0.0-beta.2' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef load_data(\n    dataset: Output[Dataset]\n):\n    import tensorflow\
+          \ as tf\n    import numpy as np\n\n    (x_train, y_train), (x_test, y_test)\
+          \ = tf.keras.datasets.mnist.load_data()\n    x_train = x_train / 255.0\n\
+          \    x_test = x_test / 255.0\n\n    with open(dataset.path, \"wb\") as f:\n\
+          \        np.savez(\n            f,\n            x_train=x_train,\n     \
+          \       y_train=y_train,\n            x_test=x_test,\n            y_test=y_test\n\
+          \        )\n\n"
+        image: python:3.7
+    exec-model-building:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_building
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet     --no-warn-script-location 'tensorflow'\
+          \ 'numpy' 'scikit-learn' 'kfp==2.0.0-beta.2' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef model_building(\n    no_epochs: int,\n    lr: float,\n    dataset:\
+          \ Input[Dataset],\n    model: Output[Model],\n    conf_matrix: Output[ClassificationMetrics],\n\
+          \    metrics: Output[Metrics],\n    model_summary: Output[Markdown]\n):\n\
+          \    \"\"\"\n    Build the model with Keras API\n    Export model parameters\n\
+          \    \"\"\"\n    from tensorflow import keras\n    import tensorflow as\
+          \ tf\n    import numpy as np\n    from sklearn.metrics import confusion_matrix\n\
+          \n    with open(dataset.path, \"rb\") as f:\n        dataset = np.load(f)\n\
+          \        x_train, y_train = dataset[\"x_train\"], dataset[\"y_train\"]\n\
+          \        x_test, y_test = dataset[\"x_test\"], dataset[\"y_test\"]\n\n\n\
+          \    train_model = keras.models.Sequential()\n    train_model.add(keras.layers.Conv2D(64,\
+          \ (3, 3), activation='relu', input_shape=(28,28,1)))\n    train_model.add(keras.layers.MaxPool2D(2,\
+          \ 2))\n\n    train_model.add(keras.layers.Flatten())\n    train_model.add(keras.layers.Dense(64,\
+          \ activation='relu'))\n\n    train_model.add(keras.layers.Dense(32, activation='relu'))\n\
+          \n    train_model.add(keras.layers.Dense(10, activation='softmax')) #output\
+          \ are 10 classes, numbers from 0-9\n\n\n    #compile the model - we want\
+          \ to have a binary outcome\n\n    optimizer = keras.optimizers.Adam(learning_rate=lr)\n\
+          \n    train_model.compile(optimizer=optimizer,\n              loss=\"sparse_categorical_crossentropy\"\
+          ,\n              metrics=['accuracy'])\n\n    #fit the model and return\
+          \ the history while training\n    history = train_model.fit(\n      x=x_train,\n\
+          \      y=y_train,\n      epochs=no_epochs,\n      batch_size=20,\n    )\n\
+          \n\n    # Test the model against the test dataset\n    # Returns the loss\
+          \ value & metrics values for the model in test mode.\n    model_loss, model_accuracy\
+          \ = train_model.evaluate(x=x_test,y=y_test)\n\n    predictions = train_model.predict(x_test)\n\
+          \n    confusion = confusion_matrix(y_test,np.argmax(predictions,axis=1)).tolist()\n\
+          \n    conf_matrix.log_confusion_matrix(\n        ['0','1','2','3','4','5','6','7','8','9'],\n\
+          \        confusion_matrix(y_test,np.argmax(predictions,axis=1)).tolist()\
+          \ # .tolist() to convert np array to list.\n    )   \n\n    metrics.log_metric(\"\
+          accuracy\", (model_accuracy*100))\n\n    stringlist = []\n    train_model.summary(print_fn=lambda\
+          \ x: stringlist.append(x))\n    markdown_content = \"\\n\".join(stringlist)\n\
+          \    with open(model_summary.path,'w') as f:\n        f.write(markdown_content)\n\
+          \n\n    with open(model.path,'wb') as f:\n        train_model.save(f)\n\n"
+        image: python:3.7
+pipelineInfo:
+  name: tensorflow-v2-i-o
+root:
+  dag:
+    outputs:
+      artifacts:
+        model-building-conf_matrix:
+          artifactSelectors:
+          - outputArtifactKey: conf_matrix
+            producerSubtask: model-building
+        model-building-metrics:
+          artifactSelectors:
+          - outputArtifactKey: metrics
+            producerSubtask: model-building
+    tasks:
+      load-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-load-data
+        taskInfo:
+          name: load-data
+      model-building:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-building
+        dependentTasks:
+        - load-data
+        inputs:
+          artifacts:
+            dataset:
+              taskOutputArtifact:
+                outputArtifactKey: dataset
+                producerTask: load-data
+          parameters:
+            lr:
+              runtimeValue:
+                constant: 0.001
+            no_epochs:
+              runtimeValue:
+                constant: 1.0
+        taskInfo:
+          name: model-building
+  inputDefinitions:
+    parameters:
+      lr:
+        parameterType: NUMBER_DOUBLE
+      no_epochs:
+        parameterType: NUMBER_INTEGER
+  outputDefinitions:
+    artifacts:
+      model-building-conf_matrix:
+        artifactType:
+          schemaTitle: system.ClassificationMetrics
+          schemaVersion: 0.0.1
+      model-building-metrics:
+        artifactType:
+          schemaTitle: system.Metrics
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.0.0-beta.2
