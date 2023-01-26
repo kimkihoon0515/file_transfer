@@ -1,0 +1,332 @@
+{
+  "doc_type": "pipeline",
+  "version": "3.0",
+  "json_schema": "http://api.dataplatform.ibm.com/schemas/common-pipeline/pipeline-flow/pipeline-flow-v3-schema.json",
+  "id": "elyra-auto-generated-pipeline",
+  "primary_pipeline": "primary",
+  "pipelines": [
+    {
+      "id": "primary",
+      "nodes": [
+        {
+          "id": "aed5b548-c4f7-4035-9a1d-5293d071263f",
+          "type": "execution_node",
+          "op": "execute-notebook-node",
+          "app_data": {
+            "component_parameters": {
+              "dependencies": [],
+              "include_subdirectories": false,
+              "outputs": [],
+              "env_vars": [],
+              "kubernetes_pod_annotations": [],
+              "kubernetes_pod_labels": [],
+              "kubernetes_secrets": [],
+              "kubernetes_shared_mem_size": {},
+              "kubernetes_tolerations": [],
+              "mounted_volumes": [
+                {
+                  "path": "/home/jovyan",
+                  "pvc_name": "elyra-volume",
+                  "read_only": false
+                }
+              ],
+              "filename": "fashion_data.ipynb",
+              "runtime_image": "tensorflow/tensorflow:2.11.0"
+            },
+            "label": "",
+            "ui_data": {
+              "label": "fashion_data.ipynb",
+              "image": "/notebook/kubeflow-user-example-com/elyra/static/elyra/notebook.svg",
+              "x_pos": 296,
+              "y_pos": 218,
+              "description": "Run notebook file"
+            }
+          },
+          "inputs": [
+            {
+              "id": "inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "308b8c93-156a-4888-b759-fb9c47f3e2d6",
+          "type": "execution_node",
+          "op": "execute-notebook-node",
+          "app_data": {
+            "component_parameters": {
+              "dependencies": [],
+              "include_subdirectories": false,
+              "outputs": [],
+              "env_vars": [],
+              "kubernetes_pod_annotations": [],
+              "kubernetes_pod_labels": [],
+              "kubernetes_secrets": [],
+              "kubernetes_shared_mem_size": {},
+              "kubernetes_tolerations": [],
+              "mounted_volumes": [
+                {
+                  "path": "/home/jovyan",
+                  "pvc_name": "elyra-volume",
+                  "read_only": false
+                }
+              ],
+              "filename": "fashion_train.ipynb",
+              "runtime_image": "tensorflow/tensorflow:2.11.0"
+            },
+            "label": "",
+            "ui_data": {
+              "label": "fashion_train.ipynb",
+              "image": "/notebook/kubeflow-user-example-com/elyra/static/elyra/notebook.svg",
+              "x_pos": 818,
+              "y_pos": 123,
+              "description": "Run notebook file"
+            }
+          },
+          "inputs": [
+            {
+              "id": "inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Input Port"
+                }
+              },
+              "links": [
+                {
+                  "id": "65417415-79f2-4c1f-91ac-dcfe55623380",
+                  "node_id_ref": "aed5b548-c4f7-4035-9a1d-5293d071263f",
+                  "port_id_ref": "outPort"
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "id": "outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "bc4a7df2-7872-4fb6-bc1f-51b5f1cc0f8b",
+          "type": "execution_node",
+          "op": "execute-notebook-node",
+          "app_data": {
+            "component_parameters": {
+              "dependencies": [],
+              "include_subdirectories": false,
+              "outputs": [],
+              "env_vars": [],
+              "kubernetes_pod_annotations": [],
+              "kubernetes_pod_labels": [],
+              "kubernetes_secrets": [],
+              "kubernetes_shared_mem_size": {},
+              "kubernetes_tolerations": [],
+              "mounted_volumes": [
+                {
+                  "path": "/home/jovyan",
+                  "pvc_name": "model-volume",
+                  "read_only": false
+                }
+              ],
+              "filename": "../pytorch/data.ipynb",
+              "runtime_image": "pytorch/pytorch:1.4-cuda10.1-cudnn7-devel"
+            },
+            "label": "",
+            "ui_data": {
+              "label": "data.ipynb",
+              "image": "/notebook/kubeflow-user-example-com/elyra/static/elyra/notebook.svg",
+              "x_pos": 297,
+              "y_pos": 376,
+              "description": "Run notebook file"
+            }
+          },
+          "inputs": [
+            {
+              "id": "inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Input Port"
+                }
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "1a0912d8-2c66-4fe8-b1f5-c6a143fae6b4",
+          "type": "execution_node",
+          "op": "execute-notebook-node",
+          "app_data": {
+            "component_parameters": {
+              "dependencies": [],
+              "include_subdirectories": false,
+              "outputs": [],
+              "env_vars": [],
+              "kubernetes_pod_annotations": [],
+              "kubernetes_pod_labels": [],
+              "kubernetes_secrets": [],
+              "kubernetes_shared_mem_size": {},
+              "kubernetes_tolerations": [],
+              "mounted_volumes": [
+                {
+                  "path": "/home/jovyan",
+                  "pvc_name": "model-volume",
+                  "read_only": false
+                }
+              ],
+              "filename": "../pytorch/train.ipynb",
+              "runtime_image": "pytorch/pytorch:1.4-cuda10.1-cudnn7-devel"
+            },
+            "label": "",
+            "ui_data": {
+              "label": "train.ipynb",
+              "image": "/notebook/kubeflow-user-example-com/elyra/static/elyra/notebook.svg",
+              "x_pos": 765,
+              "y_pos": 510,
+              "description": "Run notebook file"
+            }
+          },
+          "inputs": [
+            {
+              "id": "inPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Input Port"
+                }
+              },
+              "links": [
+                {
+                  "id": "c7348312-ba9a-4034-8da0-86fe939f5bb0",
+                  "node_id_ref": "bc4a7df2-7872-4fb6-bc1f-51b5f1cc0f8b",
+                  "port_id_ref": "outPort"
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "id": "outPort",
+              "app_data": {
+                "ui_data": {
+                  "cardinality": {
+                    "min": 0,
+                    "max": -1
+                  },
+                  "label": "Output Port"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "app_data": {
+        "ui_data": {
+          "comments": [
+            {
+              "id": "cb0723d5-37b1-42eb-97f7-5d4f26b6d8ab",
+              "x_pos": 286,
+              "y_pos": 129,
+              "width": 175,
+              "height": 44,
+              "content": "Tensorflow FashionMNIST",
+              "associated_id_refs": [
+                {
+                  "id": "d1a7a89b-1320-44fc-9e8a-2c6e599da6a0",
+                  "node_ref": "aed5b548-c4f7-4035-9a1d-5293d071263f"
+                }
+              ]
+            },
+            {
+              "id": "6ce9e3b4-6c84-4959-b388-809ac1e90921",
+              "x_pos": 53,
+              "y_pos": 301,
+              "width": 175,
+              "height": 44,
+              "content": "Pytorch MNIST",
+              "associated_id_refs": [
+                {
+                  "id": "69f9a27f-ebd8-424a-8cf1-cf69f2a8f27b",
+                  "node_ref": "bc4a7df2-7872-4fb6-bc1f-51b5f1cc0f8b"
+                }
+              ]
+            }
+          ]
+        },
+        "version": 8,
+        "runtime_type": "KUBEFLOW_PIPELINES",
+        "properties": {
+          "name": "pytorch&tensorflow",
+          "runtime": "Kubeflow Pipelines",
+          "pipeline_defaults": {
+            "kubernetes_tolerations": [],
+            "mounted_volumes": [],
+            "kubernetes_shared_mem_size": {},
+            "kubernetes_pod_annotations": [],
+            "kubernetes_pod_labels": [],
+            "kubernetes_secrets": [],
+            "env_vars": [],
+            "runtime_image": "tensorflow/tensorflow:2.11.0"
+          }
+        }
+      },
+      "runtime_ref": ""
+    }
+  ],
+  "schemas": []
+}

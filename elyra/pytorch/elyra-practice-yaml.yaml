@@ -1,0 +1,132 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: elyra-practice-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.13, pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-22T11:33:10.429110',
+    pipelines.kubeflow.org/pipeline_spec: '{"name": "elyra-practice"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.13}
+spec:
+  entrypoint: elyra-practice
+  templates:
+  - name: elyra-practice
+    dag:
+      tasks:
+      - {name: run-a-file, template: run-a-file}
+      - name: run-a-file-2
+        template: run-a-file-2
+        dependencies: [run-a-file]
+  - name: run-a-file
+    container:
+      args:
+      - |
+        sh -c "mkdir -p ./jupyter-work-dir && cd ./jupyter-work-dir"
+        sh -c "echo 'Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py' && curl --fail -H 'Cache-Control: no-cache' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py --output bootstrapper.py"
+        sh -c "echo 'Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt' && curl --fail -H 'Cache-Control: no-cache' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt --output requirements-elyra.txt"
+        sh -c "echo 'Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt' && curl --fail -H 'Cache-Control: no-cache' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt --output requirements-elyra-py37.txt"
+        sh -c "python3 -m pip install  packaging && python3 -m pip freeze > requirements-current.txt && python3 bootstrapper.py --pipeline-name 'elyra-practice' --cos-endpoint 'http://172.17.0.35:9000' --cos-bucket 'elyra-bucket' --cos-directory 'elyra-practice-0122113309' --cos-dependencies-archive 'data-627a3d09-9b8c-4363-bec8-cf1e7cb5c729.tar.gz' --file 'pytorch/data.py' "
+      command: [sh, -c]
+      env:
+      - {name: ELYRA_RUNTIME_ENV, value: kfp}
+      - {name: AWS_ACCESS_KEY_ID, value: minio}
+      - {name: AWS_SECRET_ACCESS_KEY, value: minio123}
+      - name: ELYRA_ENABLE_PIPELINE_INFO
+        value: "True"
+      - {name: ELYRA_WRITABLE_CONTAINER_DIR, value: /tmp}
+      - {name: ELYRA_RUN_NAME, value: '{{workflow.uid}}'}
+      image: pytorch/pytorch:1.4-cuda10.1-cudnn7-runtime
+      volumeMounts:
+      - {mountPath: /home/jovyan, name: model-volume, readOnly: false}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-metrics, path: /tmp/mlpipeline-metrics.json}
+      - {name: mlpipeline-ui-metadata, path: /tmp/mlpipeline-ui-metadata.json}
+    metadata:
+      annotations: {elyra/node-file-name: pytorch/data.py, elyra/pipeline-source: elyra-practice.pipeline,
+        pipelines.kubeflow.org/task_display_name: data, pipelines.kubeflow.org/component_spec: '{"description":
+          "Run a Jupyter notebook or Python/R script", "implementation": {"container":
+          {"args": ["sh -c \"mkdir -p ./jupyter-work-dir && cd ./jupyter-work-dir\"\nsh
+          -c \"echo ''Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py''
+          && curl --fail -H ''Cache-Control: no-cache'' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py
+          --output bootstrapper.py\"\nsh -c \"echo ''Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt''
+          && curl --fail -H ''Cache-Control: no-cache'' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt
+          --output requirements-elyra.txt\"\nsh -c \"echo ''Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt''
+          && curl --fail -H ''Cache-Control: no-cache'' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt
+          --output requirements-elyra-py37.txt\"\nsh -c \"python3 -m pip install  packaging
+          && python3 -m pip freeze > requirements-current.txt && python3 bootstrapper.py
+          --pipeline-name ''elyra-practice'' --cos-endpoint ''http://172.17.0.35:9000''
+          --cos-bucket ''elyra-bucket'' --cos-directory ''elyra-practice-0122113309''
+          --cos-dependencies-archive ''data-627a3d09-9b8c-4363-bec8-cf1e7cb5c729.tar.gz''
+          --file ''pytorch/data.py'' \"\n"], "command": ["sh", "-c"], "image": "pytorch/pytorch:1.4-cuda10.1-cudnn7-runtime"}},
+          "name": "Run a file"}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "8882e43aff02387e8560dd689299b6fd2e594a716f8194fa3ba9e44d46d853eb"}'}
+      labels:
+        elyra/node-type: notebook-script
+        elyra/pipeline-name: elyra-practice
+        elyra/pipeline-version: ''
+        elyra/experiment-name: ''
+        elyra/node-name: data
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.13
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+    volumes:
+    - name: model-volume
+      persistentVolumeClaim: {claimName: model-volume}
+  - name: run-a-file-2
+    container:
+      args:
+      - |
+        sh -c "mkdir -p ./jupyter-work-dir && cd ./jupyter-work-dir"
+        sh -c "echo 'Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py' && curl --fail -H 'Cache-Control: no-cache' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py --output bootstrapper.py"
+        sh -c "echo 'Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt' && curl --fail -H 'Cache-Control: no-cache' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt --output requirements-elyra.txt"
+        sh -c "echo 'Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt' && curl --fail -H 'Cache-Control: no-cache' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt --output requirements-elyra-py37.txt"
+        sh -c "python3 -m pip install  packaging && python3 -m pip freeze > requirements-current.txt && python3 bootstrapper.py --pipeline-name 'elyra-practice' --cos-endpoint 'http://172.17.0.35:9000' --cos-bucket 'elyra-bucket' --cos-directory 'elyra-practice-0122113309' --cos-dependencies-archive 'train-63136ba5-6c8a-4ff8-b25e-2a59b7dae226.tar.gz' --file 'pytorch/train.py' "
+      command: [sh, -c]
+      env:
+      - {name: ELYRA_RUNTIME_ENV, value: kfp}
+      - {name: AWS_ACCESS_KEY_ID, value: minio}
+      - {name: AWS_SECRET_ACCESS_KEY, value: minio123}
+      - name: ELYRA_ENABLE_PIPELINE_INFO
+        value: "True"
+      - {name: ELYRA_WRITABLE_CONTAINER_DIR, value: /tmp}
+      - {name: ELYRA_RUN_NAME, value: '{{workflow.uid}}'}
+      image: pytorch/pytorch:1.4-cuda10.1-cudnn7-runtime
+      volumeMounts:
+      - {mountPath: /home/jovyan, name: model-volume, readOnly: false}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-metrics, path: /tmp/mlpipeline-metrics.json}
+      - {name: mlpipeline-ui-metadata, path: /tmp/mlpipeline-ui-metadata.json}
+    metadata:
+      annotations: {elyra/node-file-name: pytorch/train.py, elyra/pipeline-source: elyra-practice.pipeline,
+        pipelines.kubeflow.org/task_display_name: train, pipelines.kubeflow.org/component_spec: '{"description":
+          "Run a Jupyter notebook or Python/R script", "implementation": {"container":
+          {"args": ["sh -c \"mkdir -p ./jupyter-work-dir && cd ./jupyter-work-dir\"\nsh
+          -c \"echo ''Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py''
+          && curl --fail -H ''Cache-Control: no-cache'' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/elyra/kfp/bootstrapper.py
+          --output bootstrapper.py\"\nsh -c \"echo ''Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt''
+          && curl --fail -H ''Cache-Control: no-cache'' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra.txt
+          --output requirements-elyra.txt\"\nsh -c \"echo ''Downloading https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt''
+          && curl --fail -H ''Cache-Control: no-cache'' -L https://raw.githubusercontent.com/elyra-ai/elyra/v3.14.1/etc/generic/requirements-elyra-py37.txt
+          --output requirements-elyra-py37.txt\"\nsh -c \"python3 -m pip install  packaging
+          && python3 -m pip freeze > requirements-current.txt && python3 bootstrapper.py
+          --pipeline-name ''elyra-practice'' --cos-endpoint ''http://172.17.0.35:9000''
+          --cos-bucket ''elyra-bucket'' --cos-directory ''elyra-practice-0122113309''
+          --cos-dependencies-archive ''train-63136ba5-6c8a-4ff8-b25e-2a59b7dae226.tar.gz''
+          --file ''pytorch/train.py'' \"\n"], "command": ["sh", "-c"], "image": "pytorch/pytorch:1.4-cuda10.1-cudnn7-runtime"}},
+          "name": "Run a file"}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "e2dd785c9bbd3603c0909b7ad095bc8121ab059a8597f39d4897aa157f98aaf3"}'}
+      labels:
+        elyra/node-type: notebook-script
+        elyra/pipeline-name: elyra-practice
+        elyra/pipeline-version: ''
+        elyra/experiment-name: ''
+        elyra/node-name: train
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.13
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+    volumes:
+    - name: model-volume
+      persistentVolumeClaim: {claimName: model-volume}
+  arguments:
+    parameters: []
+  serviceAccountName: pipeline-runner
